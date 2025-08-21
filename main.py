@@ -1,38 +1,48 @@
 from openai import OpenAI
+import os
 
-# Cliente apontando para LiteLLM local
+# tenta carregar system_message de arquivo
+system_message = "Você é um assistente útil."  # fallback padrão
+if os.path.exists("system_message.txt"):
+    with open("system_message.txt", "r", encoding="utf-8") as f:
+        content = f.read().strip()
+        if content:
+            system_message = content
+            print(f"[OK] system_message carregado: \"{system_message}\"")
+        else:
+            print("[AVISO] O arquivo system_message.txt está vazio. Usando padrão: \"Você é um assistente útil.\"")
+else:
+    print("[AVISO] O arquivo system_message.txt não foi encontrado. Usando padrão: \"Você é um assistente útil.\"")
+
 client = OpenAI(
     base_url="http://127.0.0.1:4000/v1",
     api_key="not-needed"
 )
 
-# Define a personalidade do modelo
-system_message = input("Defina a personalidade do modelo (ex: assistente útil, professor de física): ")
+messages = [
+    {"role": "system", "content": system_message}
+]
 
-# Lista de mensagens começando com o system
-messages = [{"role": "system", "content": system_message}]
+MAX_HISTORY = 10  # número máximo de mensagens no histórico
 
 print("\nDigite 'sair' para encerrar a conversa.\n")
 
 while True:
-    # Entrada do usuário
     user_input = input("Você: ")
     if user_input.lower() == "sair":
-        print("Encerrando conversa.")
         break
 
-    # Adiciona a mensagem do usuário
     messages.append({"role": "user", "content": user_input})
 
-    # Chamada para o modelo
     resp = client.chat.completions.create(
         model="ollama/llama3.2:3b",
         messages=messages
     )
 
-    # Resposta do modelo
     reply = resp.choices[0].message.content
-    print("Modelo:", reply)
+    print(f"Modelo: {reply}\n")
 
-    # Adiciona a resposta do modelo à lista para contexto
     messages.append({"role": "assistant", "content": reply})
+
+    if len(messages) > MAX_HISTORY + 1:
+        messages = [messages[0]] + messages[-MAX_HISTORY:]
